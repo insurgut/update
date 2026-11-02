@@ -19,8 +19,12 @@ jobs:
           gradle-version: '8.9'
       - name: Set up Android SDK
         run: |
-          echo "ANDROID_HOME=${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          SDK_DIR="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+          SDKMANAGER="$(find "$SDK_DIR/cmdline-tools" -type f -name sdkmanager | head -1)"
+          if [ -z "$SDKMANAGER" ]; then echo "SDK Manager unavailable"; exit 1; fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "platforms;android-35" "build-tools;35.0.0"
       - name: Extract sources
         run: tar -xzf VectorDialerCapsule-sources.tar.gz
       - name: Assemble Android APK
