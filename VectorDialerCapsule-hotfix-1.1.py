@@ -5,12 +5,30 @@ root = Path("VectorDialerCapsule")
 source = root / "app/src/main/java/ru/lisurgut/dialercapsule/MainHook.java"
 text = source.read_text()
 text = text.replace("import de.robv.android.xposed.XposedHelpers;\n", "")
-for method in ("onPause", "onDestroy", "onResume"):
+for method in ("onResume",):
     old = f'XposedHelpers.findAndHookMethod(Activity.class, "{method}", new XC_MethodHook() {{'
     new = f'hookLifecycle("{method}", new XC_MethodHook() {{'
     if old not in text:
         raise RuntimeError(f"Could not find {method} hook to update")
     text = text.replace(old, new)
+# The original GitHub source archive hooks only onResume. Install proper lifecycle cleanup, too.
+resume_hook = '        hookLifecycle("onResume", new XC_MethodHook() {'
+if resume_hook not in text:
+    raise RuntimeError("onResume hook missing after patch")
+cleanup_hooks = '''        hookLifecycle("onPause", new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam param) {
+                Controller c = controllers.get((Activity) param.thisObject);
+                if (c != null) c.stop();
+            }
+        });
+        hookLifecycle("onDestroy", new XC_MethodHook() {
+            @Override protected void afterHookedMethod(MethodHookParam param) {
+                Controller c = controllers.remove((Activity) param.thisObject);
+                if (c != null) c.stop();
+            }
+        });
+'''
+text = text.replace(resume_hook, cleanup_hooks + resume_hook, 1)
 anchor = "    static final class Target {"
 replacement = '''    private static void hookLifecycle(String name, XC_MethodHook callback) {
         try {
