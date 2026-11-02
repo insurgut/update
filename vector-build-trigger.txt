@@ -1,0 +1,1 @@
+Build trigger for experimental Vector Xposed module, 2026-11-02.
